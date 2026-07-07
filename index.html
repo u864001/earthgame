@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>⚜ 寶箱總覽 ⚜</title>
   <style>
     /* ===== 全域嚴格鎖定 ===== */
@@ -13,7 +15,7 @@
     }
     html, body {
       width: 100%; height: 100%; overflow: hidden;
-      overscroll-behavior: none; /* 禁止邊緣滑動回彈 */
+      overscroll-behavior: none;
       font-family: 'Georgia', 'Times New Roman', serif;
       background: #0a0806; display: flex; align-items: center; justify-content: center;
     }
@@ -28,7 +30,7 @@
       pointer-events: none; z-index: -1; opacity: 0.4;
     }
 
-    /* ===== 總頁面 (改為雙排 Grid 版面) ===== */
+    /* ===== 總頁面 (雙排 Grid 版面) ===== */
     .menu-container {
       width: 100%; height: 100%; display: flex; flex-direction: column;
       align-items: center; justify-content: center; padding: 4%; overflow-y: hidden;
@@ -39,10 +41,8 @@
       letter-spacing: 6px; font-weight: 700; margin-bottom: 6vmin;
     }
     .menu-list { 
-      width: 100%; max-width: 650px; 
-      display: grid; 
-      grid-template-columns: 1fr 1fr; /* 左右各一半 */
-      gap: 3vmin 4vmin; /* 上下左右的間距 */
+      width: 100%; max-width: 650px; display: grid; 
+      grid-template-columns: 1fr 1fr; gap: 3vmin 4vmin; 
     }
     .menu-btn {
       width: 100%; background: rgba(40,28,18,0.9); color: #f0dcc0;
@@ -51,11 +51,7 @@
       padding: 3vmin 1vmin; border-radius: 14px; border: 2px solid rgba(180,140,100,0.4);
       cursor: pointer; outline: none;
     }
-    /* 第 7 個寶箱置中佔滿兩格 */
-    .menu-btn:nth-child(7) {
-      grid-column: 1 / -1; 
-      margin-top: 1vmin;
-    }
+    .menu-btn:nth-child(7) { grid-column: 1 / -1; margin-top: 1vmin; }
     .menu-btn:active { background: rgba(60,42,28,0.9); transform: scale(0.98); }
 
     /* ===== 保險箱容器 ===== */
@@ -222,46 +218,21 @@
 </div>
 
 <script>
-  // ==========================================
-  // ===== 系統級封鎖事件 (終極防縮放對策) =====
-  // ==========================================
-
-  // 1. 攔截雙指捏合縮放 (Pinch-to-zoom)
-  document.addEventListener('gesturestart', function(e) {
-    e.preventDefault();
-  });
-
-  // 2. 攔截連點兩下放大 (Double-tap to zoom)
+  // ===== 系統級防護 (雙指縮放、連點放大等防護維持原樣) =====
+  document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
   var lastTouchEnd = 0;
   document.addEventListener('touchend', function(e) {
     var now = (new Date()).getTime();
-    // 如果距離上次離開螢幕的時間小於 300 毫秒，視為雙擊，強制取消系統動作
-    if (now - lastTouchEnd <= 300) {
-      e.preventDefault();
-    }
+    if (now - lastTouchEnd <= 300) { e.preventDefault(); }
     lastTouchEnd = now;
   }, false);
-
-  // 3. 攔截所有滑動事件 (防止 Safari 上下捲動、皮筋回彈效應)
-  document.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-  }, { passive: false });
-
-  // 4. 攔截右鍵與長按選單
+  document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
   document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-
-  // 5. 攔截鍵盤常用快捷鍵
   document.addEventListener('keydown', function(e) {
     const forbiddenKeys = ['F5', 'BrowserBack', 'BrowserForward'];
-    if (forbiddenKeys.includes(e.key) || (e.ctrlKey && ['r', 'R'].includes(e.key)) || (e.metaKey && ['r', 'R'].includes(e.key))) {
-      e.preventDefault();
-    }
+    if (forbiddenKeys.includes(e.key) || (e.ctrlKey && ['r', 'R'].includes(e.key)) || (e.metaKey && ['r', 'R'].includes(e.key))) { e.preventDefault(); }
   });
 
-
-  // ==========================================
-  // ===== 寶箱核心邏輯 =======================
-  // ==========================================
   window.safeApp = (function() {
     var BOXES = [
       { title: '視聽教室', code1: '1750', text1: 'It is tall, and by a flag.', code2: '3304', text2: 'This place is full of tradition, and it\'s made of stone.', theme: '#b8956a' },
@@ -334,6 +305,10 @@
     return {
       goBox: function(idx) {
         if (!canAct()) return;
+        
+        // 【核心更新】將選取的寶箱存入本機離線記憶體
+        try { localStorage.setItem('wutai_box_memory', idx); } catch(e) {}
+
         closeScrollLogic(true);
         state.isUnlocked = false;
         state.isOpen = false;
@@ -371,7 +346,10 @@
         if (!canAct() || state.isUnlocked || state.isOpen || state.boxIndex < 0) return;
         var code = state.digits.join('');
         
+        // 老師使用密碼 9999 退回總覽
         if (code === '9999') {
+          // 【核心更新】清除離線記憶體
+          try { localStorage.removeItem('wutai_box_memory'); } catch(e) {}
           closeScrollLogic(true);
           getEl('menuView').classList.remove('hidden');
           getEl('safeView').classList.add('hidden');
@@ -434,12 +412,27 @@
         if (state.rivetCount >= 5) {
           state.rivetCount = 0;
           clearTimeout(state.rivetTimer);
+          // 【核心更新】清除離線記憶體
+          try { localStorage.removeItem('wutai_box_memory'); } catch(e) {}
           closeScrollLogic(true);
           getEl('menuView').classList.remove('hidden');
           getEl('safeView').classList.add('hidden');
         }
       }
     };
+  })();
+
+  // ==========================================
+  // ===== 網頁載入時的「自動還原記憶」機制 =====
+  // ==========================================
+  (function() {
+    try {
+      var savedBox = localStorage.getItem('wutai_box_memory');
+      if (savedBox !== null && savedBox !== '') {
+        // 如果發現記憶體有紀錄，立刻跳轉到該寶箱，不顯示總覽頁
+        window.safeApp.goBox(parseInt(savedBox, 10));
+      }
+    } catch(e) {}
   })();
 </script>
 </body>
