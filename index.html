@@ -5,10 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>⚜ 寶箱總覽 ⚜</title>
   <style>
-    /* ===== 全域 ===== */
-    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    /* ===== 全域嚴格鎖定 ===== */
+    * { 
+      margin: 0; padding: 0; box-sizing: border-box; 
+      /* 禁止選取文字 */
+      user-select: none; 
+      -webkit-user-select: none; 
+      /* 禁止長按跳出選單 */
+      -webkit-touch-callout: none;
+      /* 禁止所有的雙擊放大與瀏覽器預設手勢 */
+      touch-action: none;
+    }
     html, body {
       width: 100%; height: 100%; overflow: hidden;
+      /* 禁止邊緣滑動回彈與下拉更新 */
+      overscroll-behavior: none;
       font-family: 'Georgia', 'Times New Roman', serif;
       background: #0a0806; display: flex; align-items: center; justify-content: center;
     }
@@ -207,7 +218,33 @@
 </div>
 
 <script>
-  // 建立全域物件 safeApp，讓 HTML 的 onclick 可以直接呼叫，完全避開舊版 iOS 的事件捕捉 Bug
+  // ===== 系統級封鎖事件 =====
+  
+  // 1. 攔截所有滑動事件 (防止 Safari 上下捲動、皮筋回彈效應)
+  document.addEventListener('touchmove', function(e) {
+    // 允許選單總覽頁可以上下滑動，但在寶箱畫面時全面封鎖
+    if (document.getElementById('safeView').classList.contains('hidden') === false) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // 2. 攔截右鍵與長按選單
+  document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+  // 3. 攔截鍵盤常用快捷鍵 (F5, Command+R, Ctrl+R, 返回鍵)
+  document.addEventListener('keydown', function(e) {
+    const forbiddenKeys = ['F5', 'BrowserBack', 'BrowserForward'];
+    if (
+      forbiddenKeys.includes(e.key) || 
+      (e.ctrlKey && ['r', 'R'].includes(e.key)) || 
+      (e.metaKey && ['r', 'R'].includes(e.key))
+    ) {
+      e.preventDefault();
+    }
+  });
+
+
+  // ===== 寶箱核心邏輯 =====
   window.safeApp = (function() {
     var BOXES = [
       { title: '視聽教室', code1: '1750', text1: 'It is tall, and by a flag.', code2: '3304', text2: 'This place is full of tradition, and it\'s made of stone.', theme: '#b8956a' },
@@ -231,7 +268,6 @@
       errorTimer: null
     };
 
-    // 防連點機制：防止 touchstart 跟 click 同時觸發兩次
     function canAct() {
       var now = Date.now();
       if (now - state.lastAction < 300) return false;
@@ -278,7 +314,6 @@
       }, force ? 0 : 500);
     }
 
-    // 將需要給按鈕呼叫的 API 開放出來
     return {
       goBox: function(idx) {
         if (!canAct()) return;
@@ -319,7 +354,6 @@
         if (!canAct() || state.isUnlocked || state.isOpen || state.boxIndex < 0) return;
         var code = state.digits.join('');
         
-        // 萬用後門密碼退回主選單
         if (code === '9999') {
           closeScrollLogic(true);
           getEl('menuView').classList.remove('hidden');
